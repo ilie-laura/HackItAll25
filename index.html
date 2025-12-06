@@ -1,0 +1,683 @@
+<!-- <!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8" />
+<title>Local Finder MVP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<style>
+body {
+    margin: 0;
+    display: flex;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+}
+#map { width: 50%; height: 50vh; }
+#panel {
+    height: 50vh;
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    border-left: 2px solid #adadad;
+}
+#input-box {
+    padding: 10px;
+    border-bottom: 2px solid #ddd;
+}
+#user-intent {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+}
+#list {
+    overflow-y: auto;
+    padding: 10px;
+}
+.shop {
+    border: 1px solid #ddd;
+    padding: 8px;
+    margin: 8px 0;
+    border-radius: 6px;
+}
+.shop-score {
+    font-size: 12px;
+    color: #888;
+}
+.search-link {
+    color: blue;
+    cursor: pointer;
+    text-decoration: underline;
+}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="panel">
+    <div id="input-box">
+        <input id="user-intent"
+        placeholder="Ce cauti? "/>
+    </div>
+    <div id="list">Se încarcă locația…</div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+let map, shops = [], userCoords = null;
+const MAX_DISTANCE = 5000; // 5 km fix
+
+map = L.map('map').setView([45, 25], 7);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+let markersLayer = L.layerGroup().addTo(map);
+
+
+function getLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(showPosition, fallbackIP, {timeout:5000});
+    } else fallbackIP();
+}
+
+async function fallbackIP() {
+    const res = await fetch("https://ipapi.co/json/");
+    const d = await res.json();
+    alert(" GPS blocat");
+    showPosition({ coords:{ latitude:d.latitude, longitude:d.longitude }});
+}
+
+function showPosition(pos) {
+    userCoords = [pos.coords.latitude, pos.coords.longitude];
+    map.setView(userCoords, 15);
+    L.marker(userCoords).addTo(map).bindPopup("Tu ești aici").openPopup();
+    loadNearby();
+}
+
+
+async function loadNearby() {
+    const query = `
+        [out:json];
+        (
+            node["shop"](around:${MAX_DISTANCE},${userCoords[0]},${userCoords[1]});
+            node["amenity"="marketplace"](around:${MAX_DISTANCE},${userCoords[0]},${userCoords[1]});
+            
+        );
+        out center;
+    `;
+
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        body: query
+    });
+
+    const data = await res.json();
+
+  
+    shops = data.elements
+        .map(el => ({
+            name: el.tags.name || "Fără nume",
+            type: el.tags.shop || el.tags.amenity || "loc",
+            street: el.tags["addr:street"] || "",
+            lat: el.lat,
+            lon: el.lon,
+            distance: map.distance(userCoords, [el.lat, el.lon])
+        }))
+        .filter(s => s.distance <= MAX_DISTANCE);
+
+    renderResults();
+    renderMarkers();
+}
+
+
+function renderResults() {
+    const list = document.getElementById("list");
+
+    if (!shops.length) {
+        list.innerHTML = "Nu sunt magazine în raza de 5 km.";
+        return;
+    }
+
+    const intent = document.getElementById("user-intent").value.trim().toLowerCase();
+    const words = intent ? intent.split(" ").filter(w => w.length > 2) : [];
+
+    const scored = shops
+        .map(s => ({
+            ...s,
+            score: words.length ? scoreShop(words, s) : 1
+        }))
+        .filter(s => s.score > 0) 
+        .sort((a, b) => a.distance - b.distance); 
+
+    if (scored.length === 0) {
+        list.innerHTML = " Nimic nu se potriveste cererii tale aici.";
+        return;
+    }
+
+    list.innerHTML = scored.map(s => `
+        <div class="shop">
+            <b>${s.name}</b><br>
+            ${s.type}<br>
+             ${Math.round(s.distance)} m<br>
+            <span class="search-link" onclick="openWeb('${s.name} ${s.type} Romania local')">
+             Cautare pe Web</span>
+        </div>
+    `).join("");
+}
+
+function scoreShop(intentWords, shop) {
+    const text = (shop.name + " " + shop.type).toLowerCase();
+    return intentWords.reduce((score,w)=> score + (text.includes(w)?1:0), 0);
+}
+
+document.getElementById("user-intent").addEventListener("input", renderResults);
+
+function renderResults() {
+    const list = document.getElementById("list");
+    const intent = document.getElementById("user-intent").value.trim().toLowerCase();
+    if (!intent) return list.innerHTML = "Scrie ce vrei…";
+
+    const words = intent.split(" ").filter(w => w.length > 2);
+
+    const scored = shops
+        .map(s => ({...s, score: scoreShop(words,s)}))
+        .sort((a,b)=>b.score-a.score);
+
+    list.innerHTML = scored.map(s => `
+        <div class="shop">
+            <b>${s.name}</b><br>
+            ${s.type}<br>
+             ${Math.round(s.distance)} m<br>
+            <span class="shop-score">relevanță: ${s.score}</span><br>
+            <span class="search-link" onclick="openWeb('${s.name} ${s.type} Romania local')">
+             căutare online</span>
+        </div>
+    `).join("");
+}
+
+// ---- 6. SEARCH ENGINE OPENER ----
+function openWeb(query) {
+    window.open(`https://duckduckgo.com/?q=${encodeURIComponent(query)}`);
+}
+
+getLocation();
+</script>
+
+</body>
+</html> -->
+<!-- <!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8" />
+<title>Local Finder AI MVP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<style>
+body {
+    margin: 0;
+    display: flex;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+}
+#map { width: 50%; height: 100vh; }
+#panel {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    border-left: 2px solid #adadad;
+}
+#input-box {
+    padding: 10px;
+    border-bottom: 2px solid #ddd;
+}
+#user-intent {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+}
+#list {
+    overflow-y: auto;
+    padding: 10px;
+}
+.shop {
+    border: 1px solid #ddd;
+    padding: 8px;
+    margin: 8px 0;
+    border-radius: 6px;
+}
+.search-link {
+    color: blue;
+    cursor: pointer;
+    text-decoration: underline;
+}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="panel">
+    <div id="input-box">
+        <input id="user-intent" placeholder="Ce cauți? ex: farmacie, pâine, second hand, tricou" />
+    </div>
+    <div id="list">Se încarcă locația…</div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+let map, shops=[], userCoords=null;
+const MAX_DISTANCE = 5000; // 5km
+
+
+map = L.map('map').setView([45, 25], 7);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+let markersLayer = L.layerGroup().addTo(map);
+
+const semanticMap = {
+    pharmacy: ["farmacie", "antibiotic", "pastile", "medicamente", "aspirina", "paracetamol"],
+    clothes: ["haine", "tricou", "pantaloni", "second hand", "fashion", "bluza", "îmbrăcăminte", "moda", "rochie", "pantofi"],
+    bakery: ["paine", "pâine", "cozonac", "covrig", "brutarie", "patiserie", "brutărie","tort","cornulețe"],
+    supermarket: ["magazin", "supermarket", "marfa", "alimentar", "cumparaturi", "market","piata", "legume", "fructe", "targ", "local", "bio"],
+    marketplace: ["piata", "legume", "fructe", "targ", "local", "bio"]
+};
+
+function detectCategory(text) {
+    text = text.toLowerCase();
+    for (const category in semanticMap) {
+        if (semanticMap[category].some(word => text.includes(word))) {
+            return category;
+        }
+    }
+    return null;
+}
+
+function getLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(showPosition, fallbackIP, { timeout:5000 });
+    } else fallbackIP();
+}
+
+async function fallbackIP() {
+    const res = await fetch("https://ipapi.co/json/");
+    const d = await res.json();
+    alert(" GPS blocat → folosesc locația IP.");
+    showPosition({ coords:{ latitude:d.latitude, longitude:d.longitude }, fallback:true });
+}
+
+function showPosition(pos) {
+    userCoords = [pos.coords.latitude, pos.coords.longitude];
+    map.setView(userCoords, 15);
+
+    // User marker
+    L.marker(userCoords).addTo(map).bindPopup("📍 Tu ești aici").openPopup();
+
+    loadNearby();
+}
+
+async function loadNearby() {
+    const query = `
+        [out:json];
+        (
+            node["shop"](around:${MAX_DISTANCE},${userCoords[0]},${userCoords[1]});
+            node["amenity"="marketplace"](around:${MAX_DISTANCE},${userCoords[0]},${userCoords[1]});
+        );
+        out center;
+    `;
+
+    const res = await fetch("https://overpass-api.de/api/interpreter", { method:"POST", body:query });
+    const data = await res.json();
+
+    shops = data.elements
+        .map(el => ({
+            name: el.tags.name || "Fără nume",
+            type: el.tags.shop || el.tags.amenity || "loc",
+            lat: el.lat,
+            lon: el.lon,
+            distance: map.distance(userCoords, [el.lat, el.lon])
+        }))
+        .filter(s => s.distance <= MAX_DISTANCE);
+
+    renderMarkers();
+    renderResults();
+}
+
+function renderMarkers() {
+    markersLayer.clearLayers();
+
+    shops.forEach(s => {
+        const popup = `
+            <b>${s.name}</b><br>
+            ${s.type}<br>
+            📏 ${Math.round(s.distance)} m<br>
+            <span class="search-link" onclick="openWeb('${s.name} ${s.type} Romania local')">🔍 Caută pe Web</span>
+        `;
+        L.marker([s.lat, s.lon]).addTo(markersLayer).bindPopup(popup);
+    });
+
+    // Auto-zoom to include all
+    const bounds = shops.map(s => [s.lat, s.lon]);
+    bounds.push(userCoords);
+
+    map.fitBounds(bounds, { padding:[50,50], maxZoom:16 });
+}
+
+
+document.getElementById("user-intent").addEventListener("input", renderResults);
+
+function renderResults() {
+    const list = document.getElementById("list");
+    const intent = document.getElementById("user-intent").value.trim().toLowerCase();
+
+    if (!intent) return list.innerHTML = "Scrie ce cauți…";
+
+    const category = detectCategory(intent);
+
+    let matches = shops;
+
+    if (category) {
+        matches = matches.filter(s => s.type.includes(category));
+    }
+
+    if (!matches.length) {
+        list.innerHTML = ` Nu există rezultate pentru "<i>${intent}</i>" în 5km.`;
+        return;
+    }
+
+    matches.sort((a,b)=>a.distance-b.distance);
+
+    list.innerHTML = matches.map(s => `
+        <div class="shop">
+            <b>${s.name}</b><br>
+            ${s.type}<br>
+             ${Math.round(s.distance)} m<br>
+            <span class="search-link" onclick="openWeb('${s.name} ${s.type} Romania local')">🔍 căutare online</span>
+        </div>
+    `).join("");
+}
+
+function openWeb(query) {
+    window.open(`https://duckduckgo.com/?q=${encodeURIComponent(query)}`, "_blank");
+}
+
+getLocation();
+</script>
+
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8" />
+<title>Local AI Finder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<style>
+/* ---- YOUR STYLE ---- */
+body{
+    font-family: Arial, sans-serif;
+    background-color: rgb(225, 237, 229);
+    margin: 0;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 150px;
+  background-color: #ffffff;
+  position: fixed;
+  height: 100%;
+  overflow: hidden;
+  border-right: 2px solid #ccc;
+}
+
+.sidebar a {
+  display: block;
+  color: black;
+  padding: 16px;
+  text-decoration: none;
+}
+ 
+.sidebar a.active {
+  background-color: #04AA6D;
+  color: white;
+}
+
+.sidebar a:hover:not(.active) {
+  background-color: #e6e6e6;
+  color: black;
+}
+
+.sidebar img{
+    width: 70px;
+    margin: 20px auto;
+    display: block;
+}
+
+/* ---- PAGE LAYOUT ---- */
+.container {
+  margin-left: 150px;
+  display: flex;
+  height: 100vh;
+}
+
+#map { width: 55%; height: 100vh; }
+
+#panel {
+    width: 45%;
+    display: flex;
+    flex-direction: column;
+    border-left: 2px solid #adadad;
+    background: white;
+}
+
+#input-box {
+    padding: 10px;
+    border-bottom: 2px solid #ddd;
+}
+
+#user-intent {
+    width: 100%;
+    padding: 12px;
+    font-size: 18px;
+    border-radius: 6px;
+    border: 1px solid #aaa;
+}
+
+#list {
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.shop {
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 6px;
+    background: #f7f7f7;
+}
+
+.search-link {
+    color: #0077cc;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+/* Responsive */
+@media screen and (max-width: 900px){
+    .container {
+        flex-direction: column;
+        margin-left: 0;
+    }
+    #map, #panel {
+        width: 100%;
+        height: 50vh;
+    }
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+    }
+}
+</style>
+</head>
+
+<body>
+   
+<div class="sidebar">
+<img src="assets/cog.png" alt="Logo">
+  <a class="active" href="home.html">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-house-fill" viewBox="0 0 16 16" padding="20px">
+  <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L8 2.207l6.646 6.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293z"/>
+  <path d="m8 3.293 6 6V13.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5V9.293z"/>
+</svg>
+Home</a>
+  <a href="#Harta"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-fill" viewBox="0 0 16 16" padding="20px">
+  <path fill-rule="evenodd" d="M4 4a4 4 0 1 1 4.5 3.969V13.5a.5.5 0 0 1-1 0V7.97A4 4 0 0 1 4 3.999zm2.493 8.574a.5.5 0 0 1-.411.575c-.712.118-1.28.295-1.655.493a1.3 1.3 0 0 0-.37.265.3.3 0 0 0-.057.09V14l.002.008.016.033a.6.6 0 0 0 .145.15c.165.13.435.27.813.395.751.25 1.82.414 3.024.414s2.273-.163 3.024-.414c.378-.126.648-.265.813-.395a.6.6 0 0 0 .146-.15l.015-.033L12 14v-.004a.3.3 0 0 0-.057-.09 1.3 1.3 0 0 0-.37-.264c-.376-.198-.943-.375-1.655-.493a.5.5 0 1 1 .164-.986c.77.127 1.452.328 1.957.594C12.5 13 13 13.4 13 14c0 .426-.26.752-.544.977-.29.228-.68.413-1.116.558-.878.293-2.059.465-3.34.465s-2.462-.172-3.34-.465c-.436-.145-.826-.33-1.116-.558C3.26 14.752 3 14.426 3 14c0-.599.5-1 .961-1.243.505-.266 1.187-.467 1.957-.594a.5.5 0 0 1 .575.411"/>
+</svg>
+Harta</a>
+  <a href="#contact"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-envelope-fill" viewBox="0 0 16 16">
+  <path d="M.05 3.555A2 2 0 0 1 2 2h12a2 2 0 0 1 1.95 1.555L8 8.414zM0 4.697v7.104l5.803-3.558zM6.761 8.83l-6.57 4.027A2 2 0 0 0 2 14h12a2 2 0 0 0 1.808-1.144l-6.57-4.027L8 9.586zm3.436-.586L16 11.801V4.697z"/>
+</svg>
+Contact</a>
+  <a href="#about"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-person-fill" viewBox="0 0 16 16">
+  <path d="M12 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2m-1 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0m-3 4c2.623 0 4.146.826 5 1.755V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-1.245C3.854 11.825 5.377 11 8 11"/>
+</svg>
+About</a>
+</div>
+
+<div class="container">
+
+    <div id="map"></div>
+
+    <div id="panel">
+        <div id="input-box">
+            <input id="user-intent" placeholder="Ce cauți? ex: farmacie, pâine, second hand, cosmetice…">
+        </div>
+        <div id="list">📍 Se detectează locația...</div>
+    </div>
+
+</div>
+
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>-
+let map, shops = [], userCoords = null;
+const MAX_DISTANCE = 5000;
+
+const semanticMap = {
+    pharmacy:["farmacie","pastile","antibiotic","medicamente","aspirină"],
+    bakery:["pâine","paine","covrigi","cozonac","patiserie","brutărie"],
+    clothes:["haine","tricou","fustă","second hand","pantofi","moda","rochie"],
+    supermarket:["alimentar","supermarket","magazin","kaufland","carrefour","mega"],
+    marketplace:["piață","piata","bio","local","legume","fructe","târg"]
+};
+
+function detectCategory(text){
+    text=text.toLowerCase();
+    for(const cat in semanticMap){
+        if(semanticMap[cat].some(w=>text.includes(w))) return cat;
+    }
+    return null;
+}
+
+
+map=L.map('map').setView([45,25],7);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
+let markersLayer=L.layerGroup().addTo(map);
+
+function getLocation(){
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(showPosition,fallbackIP,{timeout:5000});
+    } else fallbackIP();
+}
+
+async function fallbackIP(){
+    const res=await fetch("https://ipapi.co/json/");
+    const d=await res.json();
+    alert("⚠ GPS blocat — folosesc locația IP.");
+    showPosition({coords:{latitude:d.latitude,longitude:d.longitude}});
+}
+
+function showPosition(pos){
+    userCoords=[pos.coords.latitude,pos.coords.longitude];
+    map.setView(userCoords,15);
+    L.marker(userCoords).addTo(map).bindPopup("📍 Tu ești aici").openPopup();
+    loadNearby();
+}
+
+async function loadNearby(){
+    const query=`
+        [out:json];
+        (
+            node["shop"](around:${MAX_DISTANCE},${userCoords[0]},${userCoords[1]});
+            node["amenity"="marketplace"](around:${MAX_DISTANCE},${userCoords[0]},${userCoords[1]});
+        ); out center;`;
+
+    const req=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:query});
+    const data=await req.json();
+
+    shops=data.elements.map(el=>({
+        name:el.tags.name||"Fără nume",
+        type:el.tags.shop||el.tags.amenity||"loc",
+        lat:el.lat, lon:el.lon,
+        distance:map.distance(userCoords,[el.lat,el.lon])
+    })).filter(s=>s.distance<=MAX_DISTANCE);
+
+    renderMarkers();
+    renderResults();
+}
+
+
+function renderMarkers(){
+    markersLayer.clearLayers();
+    const bounds=[userCoords,...shops.map(s=>[s.lat,s.lon])];
+
+    shops.forEach(s=>{
+        L.marker([s.lat,s.lon]).addTo(markersLayer)
+        .bindPopup(`<b>${s.name}</b><br>${s.type}<br>📏 ${Math.round(s.distance)}m`);
+    });
+
+    map.fitBounds(bounds,{padding:[50,50],maxZoom:16});
+}
+
+document.getElementById("user-intent").addEventListener("input", renderResults);
+
+function renderResults(){
+    const list=document.getElementById("list");
+    const query=document.getElementById("user-intent").value.trim().toLowerCase();
+
+    if(!query) return list.innerHTML="✏️ Scrie ce cauți…";
+
+    const category=detectCategory(query);
+    let results=shops;
+
+    if(category) results=results.filter(s=>s.type.includes(category));
+
+    if(!results.length)
+        return list.innerHTML=`❌ Nimic găsit pentru "<b>${query}</b>" în 5km.`;
+
+    results.sort((a,b)=>a.distance-b.distance);
+
+    list.innerHTML=results.map(s=>`
+        <div class="shop">
+            <b>${s.name}</b><br>
+            🏷 ${s.type}<br>
+            📏 ${Math.round(s.distance)}m<br>
+            <span class="search-link" onclick="openWeb('${s.name} ${s.type}')">🔍 căutare online</span>
+        </div>
+    `).join("");
+}
+
+// -------- WEB SEARCH BUTTON --------
+function openWeb(q){
+    window.open(`https://duckduckgo.com/?q=${encodeURIComponent(q+" România local")}`,"_blank");
+}
+
+getLocation();
+</script>
+
+</body>
+</html>
+
