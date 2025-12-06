@@ -18,7 +18,6 @@ body {
   background-color: #ffffff;
   position: fixed;
   height: 100%;
-  overflow: hidden;
   border-right: 2px solid #ccc;
 }
 .sidebar a {
@@ -29,7 +28,6 @@ body {
 }
 .sidebar a.active { background-color: #04AA6D; color: white; }
 .sidebar a:hover:not(.active) { background-color: #e6e6e6; }
-
 .sidebar img{
     width: 70px;
     margin: 20px auto;
@@ -43,7 +41,6 @@ body {
   height: 100vh;
 }
 
-/* Rezultate în locul hărții */
 #results {
     width: 50%;
     padding: 15px;
@@ -52,7 +49,6 @@ body {
     border-right: 2px solid #ccc;
 }
 
-/* Panel chat */
 #panel {
     width: 50%;
     display: flex;
@@ -60,13 +56,13 @@ body {
     background: white;
 }
 
+/* Chat UI */
 #chat {
     padding: 15px;
     flex-grow: 1;
     overflow-y: auto;
 }
 
-/* Mesaje tip WhatsApp */
 .bubble {
     max-width: 80%;
     padding: 10px;
@@ -113,28 +109,37 @@ body {
 </head>
 
 <body>
-
 <div class="sidebar">
 <img src="assets/cog.png">
+
 <a class="active" href="index.html">
- <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-house-fill" viewBox="0 0 16 16" padding="20px">
+ <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-house-fill">
   <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L8 2.207l6.646 6.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293z"/>
   <path d="m8 3.293 6 6V13.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5V9.293z"/>
-</svg>
-    Home</a>
-<a href="harta.html"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-fill" viewBox="0 0 16 16" padding="20px">
+ </svg>
+ Home
+</a>
+
+<a href="harta.html">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-fill">
   <path fill-rule="evenodd" d="M4 4a4 4 0 1 1 4.5 3.969V13.5a.5.5 0 0 1-1 0V7.97A4 4 0 0 1 4 3.999zm2.493 8.574a.5.5 0 0 1-.411.575c-.712.118-1.28.295-1.655.493a1.3 1.3 0 0 0-.37.265.3.3 0 0 0-.057.09V14l.002.008.016.033a.6.6 0 0 0 .145.15c.165.13.435.27.813.395.751.25 1.82.414 3.024.414s2.273-.163 3.024-.414c.378-.126.648-.265.813-.395a.6.6 0 0 0 .146-.15l.015-.033L12 14v-.004a.3.3 0 0 0-.057-.09 1.3 1.3 0 0 0-.37-.264c-.376-.198-.943-.375-1.655-.493a.5.5 0 1 1 .164-.986c.77.127 1.452.328 1.957.594C12.5 13 13 13.4 13 14c0 .426-.26.752-.544.977-.29.228-.68.413-1.116.558-.878.293-2.059.465-3.34.465s-2.462-.172-3.34-.465c-.436-.145-.826-.33-1.116-.558C3.26 14.752 3 14.426 3 14c0-.599.5-1 .961-1.243.505-.266 1.187-.467 1.957-.594a.5.5 0 0 1 .575.411"/>
 </svg>
-Harta</a>
-<a>
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-envelope-fill" viewBox="0 0 16 16">
+ Harta
+</a>
+
+<a href="contact.html">
+ <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-envelope-fill">
   <path d="M.05 3.555A2 2 0 0 1 2 2h12a2 2 0 0 1 1.95 1.555L8 8.414zM0 4.697v7.104l5.803-3.558zM6.761 8.83l-6.57 4.027A2 2 0 0 0 2 14h12a2 2 0 0 0 1.808-1.144l-6.57-4.027L8 9.586zm3.436-.586L16 11.801V4.697z"/>
-</svg>
-Contact</a>
-<a><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-person-fill" viewBox="0 0 16 16">
+ </svg>
+ Contact
+</a>
+
+<a href="about.html">
+ <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-person-fill">
   <path d="M12 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2m-1 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0m-3 4c2.623 0 4.146.826 5 1.755V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-1.245C3.854 11.825 5.377 11 8 11"/>
-</svg>
-About</a>
+ </svg>
+ About
+</a>
 </div>
 
 <div class="container">
@@ -143,16 +148,16 @@ About</a>
     </div>
 
     <div id="panel">
+
         <div id="chat">
-            <div class="bubble bot"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-robot" viewBox="0 0 16 16">
+            <div class="bubble bot">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-robot" viewBox="0 0 16 16">
   <path d="M6 12.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5M3 8.062C3 6.76 4.235 5.765 5.53 5.886a26.6 26.6 0 0 0 4.94 0C11.765 5.765 13 6.76 13 8.062v1.157a.93.93 0 0 1-.765.935c-.845.147-2.34.346-4.235.346s-3.39-.2-4.235-.346A.93.93 0 0 1 3 9.219zm4.542-.827a.25.25 0 0 0-.217.068l-.92.9a25 25 0 0 1-1.871-.183.25.25 0 0 0-.068.495c.55.076 1.232.149 2.02.193a.25.25 0 0 0 .189-.071l.754-.736.847 1.71a.25.25 0 0 0 .404.062l.932-.97a25 25 0 0 0 1.922-.188.25.25 0 0 0-.068-.495c-.538.074-1.207.145-1.98.189a.25.25 0 0 0-.166.076l-.754.785-.842-1.7a.25.25 0 0 0-.182-.135"/>
   <path d="M8.5 1.866a1 1 0 1 0-1 0V3h-2A4.5 4.5 0 0 0 1 7.5V8a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1v-.5A4.5 4.5 0 0 0 10.5 3h-2zM14 7.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.5A3.5 3.5 0 0 1 5.5 4h5A3.5 3.5 0 0 1 14 7.5"/>
-</svg>
-                Salut! Spune ce cauti !<br><br>
-                Exemplu:<br>
-                – "farmacie aproape"<br>
+</svg> Salut! Spune ce cauți: <br><br>
+                – "tricou rosu"<br>
                 – "haine second hand"<br>
-                – "paine fara lidl"<br>
+                – "pantofi fără Zara"<br>
             </div>
         </div>
 
@@ -164,136 +169,75 @@ About</a>
 </div>
 
 <script>
-// ===== UTIL =====
-function norm(t){ return t.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu,""); }
-function escapeHTML(t){ return t.replace(/[<>]/g,""); }
+const CHAT_URL = "http://localhost:3002/api/find-product";
 
-const chains=["lidl","kaufland","carrefour","mega","dm","pepco","zara","hm","penny"];
-function isChain(name){ return chains.some(x=>norm(name).includes(x)); }
+// UI functions
+const chat = document.getElementById("chat");
+const results = document.getElementById("results");
 
-const keywords={
-  farmacie:["farmacie","pastile","medicamente"],
-  paine:["paine","covrigi","patiserie","brutarie"],
-  haine:["haine","second hand","tricou","pantofi","blugi"],
-  cafea:["cafea","cafenea"],
-  supermarket:["supermarket","magazin","market"]
-};
-
-function detectIntent(q){
-  q=norm(q);
-  for(let key in keywords)
-    if(keywords[key].some(w=>q.includes(w))) return key;
-  return null;
+function bubble(text, role){
+    const div = document.createElement("div");
+    div.className = "bubble " + role;
+    div.innerHTML = text;
+    chat.append(div);
+    chat.scrollTop = chat.scrollHeight;
 }
 
-function extractExclude(q){
-  q=norm(q);
-  const out=[];
-  const r=/((nu vreau|fara|fără) ([a-z0-9 ]+))/g;
-  let m; 
-  while(m=r.exec(q)) out.push(m[3].trim());
-  return out;
+// Send message
+document.getElementById("send-btn").onclick = send;
+document.getElementById("chat-input").addEventListener("keydown", e=>{
+    if(e.key==="Enter") send();
+});
+
+async function send(){
+    const input = document.getElementById("chat-input");
+    const text = input.value.trim();
+    if(!text) return;
+
+    input.value="";
+    bubble(text,"user");
+
+    bubble(" Caut pentru tine...","bot");
+
+    try {
+        const res = await fetch(CHAT_URL,{
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ query:text })
+        });
+
+        const data = await res.json();
+        showResults(data);
+        
+    } catch(err){
+        bubble(" Serverul AI nu răspunde.","bot");
+    }
 }
 
-// ===== DATA FETCH =====
-let shops=[], userPos=null;
+function showResults(data){
+    results.innerHTML="";
 
-navigator.geolocation.getCurrentPosition(load,fallback);
-async function fallback(){
-  const d=await (await fetch("https://ipapi.co/json/")).json();
-  load({coords:{latitude:d.latitude,longitude:d.longitude}});
-}
+    if(!data.results.length){
+        bubble("Nu am găsit ceva relevant...","bot");
+        return;
+    }
 
-async function load(pos){
- userPos=[pos.coords.latitude,pos.coords.longitude];
+    bubble(`Am găsit ${data.results.length} opțiuni`, "bot");
 
- const query=`
-[out:json][timeout:25];
-(
- node["shop"](around:5000,${userPos[0]},${userPos[1]});
- way["shop"](around:5000,${userPos[0]},${userPos[1]});
-);
-out center;
-`;
-
- const res=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:query});
- const data=await res.json();
-
- shops=data.elements.map(e=>{
-   const lat=e.lat||e.center?.lat;
-   const lon=e.lon||e.center?.lon;
-   return {
-     name:e.tags.name||"Fara nume",
-     type:e.tags.shop||"",
-     lat,lon,
-     chain:isChain(e.tags.name||""),
-     dist:(lat&&lon)?Math.random()*5000:999999  // mock distance (server limit)
-   }
- });
-}
-
-// ===== UI CHAT =====
-const chat=document.getElementById("chat");
-const results=document.getElementById("results");
-
-function bubble(msg,role){
- let div=document.createElement("div");
- div.className="bubble "+role;
- div.innerHTML=msg;
- chat.append(div);
- chat.scrollTop=chat.scrollHeight;
-}
-
-document.getElementById("send-btn").onclick=run;
-document.getElementById("chat-input").addEventListener("keydown",e=>{if(e.key==="Enter")run();});
-
-function run(){
- let q=document.getElementById("chat-input").value.trim();
- if(!q) return;
- document.getElementById("chat-input").value="";
- bubble(escapeHTML(q),"user");
- search(q);
-}
-
-// ===== SEARCH =====
-function search(q){
- if(!shops.length) return bubble("Se încarcă locațiile... încearcă din nou.","bot");
-
- const intent=detectIntent(q);
- const exclude=extractExclude(q);
- const qn=norm(q);
-
- if(!intent) return bubble("Nu înțeleg. Încearcă: farmacie, paine, haine.","bot");
-
- let filtered=shops.filter(s=>norm(s.type).includes(intent)||norm(s.name).includes(intent)||norm(s.name).includes(qn));
-
- if(exclude.length){
-    filtered=filtered.filter(s=>exclude.every(ex=> !norm(s.name).includes(ex) && !norm(s.type).includes(ex)));
- }
-
- if(!filtered.length) return bubble("Nimic potrivit găsit.","bot");
-
- filtered.forEach(s=>{ s.score=(s.chain?-0.3:0.4)+(1/(s.dist+1)); });
- filtered.sort((a,b)=>b.score-a.score);
- filtered=filtered.slice(0,10);
-
- results.innerHTML="";
-
- filtered.forEach(s=>{
-    let card=document.createElement("div");
-    card.className="card";
-    card.innerHTML=`
-      <b>${escapeHTML(s.name)}</b>
-      ${s.chain?'<span class="badge chain">Lanț</span>':'<span class="badge local">Local</span>'}
-      <div class="muted">${escapeHTML(s.type)}</div>
-      <div class="link-container">
-        <a target="_blank" href="https://www.google.com/maps?q=${s.lat},${s.lon}">Deschide pe hartă</a>
-      </div>
-    `;
-    results.append(card);
- });
-
- bubble(`Am găsit ${filtered.length} opțiuni bune.`, "bot");
+    data.results.forEach(item=>{
+        let card = document.createElement("div");
+        card.className="card";
+        card.innerHTML = `
+            <b>${item.name}</b> 
+            ${item.type === "local" ? 
+                '<span class="badge local">Local</span>' : 
+                item.type === "chain" ? 
+                '<span class="badge chain">Lanț</span>' : ''}
+            <div class="muted">${item.reason}</div>
+            <div class="link-container"><a href="${item.url}" target="_blank">🔗 Vizitează site-ul</a></div>
+        `;
+        results.append(card);
+    });
 }
 </script>
 </body>
