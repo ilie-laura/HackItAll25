@@ -1,64 +1,65 @@
-// server.js
-// Backend AI shopping agent: primeste un query (ex: "tricou rosu local")
-// -> cauta pe web (DuckDuckGo) -> trimite linkurile la Llama (Groq)
-// -> Llama alege magazinele relevante si le clasifica local / lant mare
-import dotenv from "dotenv";
-dotenv.config();
-
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
 import Groq from "groq-sdk";
-
-const app = express();
-app.use(cors());
-app.use(express.json());
+import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Servește automat index.html + restul fișierelor
-app.use(express.static(__dirname));
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-// pune cheia ta Groq in env:  export GROQ_API_KEY=....
+// Serve frontend files (IMPORTANT)
+app.use(express.static(__dirname + "/"));
+// DEBUG — vezi dacă cheia există
+console.log("Groq key loaded?", process.env.GROQ_API_KEY ? "YES" : "NO");
+
 const client = new Groq({
   apiKey: process.env.GROQ_API_KEY
 });
 
-// ----- helper: cautare web simpla pe DuckDuckGo (HTML scrape) -----
+// -------- Crawling simplu DuckDuckGo --------
 async function duckSearch(query) {
+  console.log("Searching duckduckgo for:", query);
+
   const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+
   const html = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0"
-    }
+    headers: { "User-Agent": "Mozilla/5.0" }
   }).then(r => r.text());
 
-  // ia primele 10 rezultate
   const regex = /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]*)"/g;
   const results = [];
-  let m;
-  while ((m = regex.exec(html)) !== null && results.length < 10) {
-    const href = decodeURIComponent(m[1]);
-    results.push(href);
+
+  let match;
+  while ((match = regex.exec(html)) !== null && results.length < 10) {
+    results.push(decodeURIComponent(match[1]));
   }
+
+  console.log("Results found:", results);
+
   return results;
 }
 
-// ----- endpoint principal: /api/find-product -----
+// -------- AI Endpoint --------
 app.post("/api/find-product", async (req, res) => {
   try {
     const { query } = req.body;
-    if (!query || typeof query !== "string") {
-      return res.status(400).json({ error: "Lipseste 'query' in body" });
+
+    if (!query) {
+      return res.status(400).json({ error: "Missing 'query'" });
     }
 
-    // 1) cauta pe web
-    const rawLinks = await duckSearch(query);
+    const scrapedLinks = await duckSearch(query);
 
-    // 2) lasa AI-ul sa curateze linkurile
+    console.log("Calling Groq AI...");
+
     const completion = await client.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       response_format: { type: "json_object" },
@@ -66,31 +67,17 @@ app.post("/api/find-product", async (req, res) => {
         {
           role: "system",
           content: `
-Esti un agent AI de shopping pentru utilizatori din Romania.
+Tu ești un agent AI care selectează magazine pentru cumpărături din România.
 
-Primesti:
-- "query": intentia utilizatorului (ex: "tricou rosu 100% bumbac local")
-- "results": lista de URL-uri gasite pe web.
+Filtrează link-urile astfel:
+- Preferă magazine locale românești
+- Exclude branduri mari dacă query-ul conține "nu vreau" / "fara"
+- Returnează JSON simplu.
 
-Sarcini:
-1. Pastreaza DOAR link-urile unde pare ca utilizatorul poate cumpara produsul (magazine online, pagini de produs, marketplace-uri).
-2. Pentru fiecare rezultat:
-   - "name": nume scurt al magazinului / brandului (ex: "EtnoWear", "eMAG fashion")
-   - "url": linkul original
-   - "type":
-       - "local"  → brand mic / atelier / magazin romanesc, site independent
-       - "chain"  → lant mare (Amazon, Shein, Zara, H&M, eMAG mare etc.)
-       - "unknown" → nu poti spune
-   - "reason": de ce l-ai clasificat asa
-
-3. Daca vezi in query expresii de genul "nu vreau X" sau "fara X",
-   nu include linkuri care par sa fie acel brand X.
-
-Raspunde STRICT JSON, fara text in plus, in format:
-
+Schema finală:
 {
-  "query": "...",
-  "results": [
+ "query": "...",
+ "results": [
     { "name": "...", "url": "...", "type": "local|chain|unknown", "reason": "..." }
   ]
 }
@@ -100,32 +87,36 @@ Raspunde STRICT JSON, fara text in plus, in format:
           role: "user",
           content: JSON.stringify({
             query,
-            results: rawLinks
+            results: scrapedLinks
           })
         }
       ]
     });
 
-    const text = completion.choices[0].message.content;
+    const aiResponse = completion.choices[0]?.message?.content || "{}";
+
+    console.log("RAW AI Response:", aiResponse);
+
     let parsed;
+
     try {
-      parsed = JSON.parse(text);
-    } catch (e) {
-      // fallback minimal daca modelul nu respecta 100% formatul
+      parsed = JSON.parse(aiResponse);
+    } catch (err) {
+      console.warn("⚠ AI responded with invalid JSON. Sending fallback.");
       parsed = { query, results: [] };
     }
 
     res.json(parsed);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Eroare la AI agent", details: String(err) });
+
+  } catch (error) {
+    console.error("SERVER ERROR:", error);
+    res.status(500).json({
+      error: "AI server failed",
+      message: error.message,
+      stack: error.stack
+    });
   }
 });
 
 const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
-  console.log("AI shopping agent running on http://localhost:" + PORT );
-});
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
+app.listen(PORT, () => console.log(`AI Agent running → http://localhost:${PORT}`));
