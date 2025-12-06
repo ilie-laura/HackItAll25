@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8" />
+<title>Harta - Local AI Finder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #e5f2e6;
+    margin: 0;
+}
+
+
+.sidebar {
+  width: 150px;
+  background-color: #ffffff;
+  position: fixed;
+  height: 100%;
+  overflow: hidden;
+  border-right: 2px solid #ccc;
+}
+
+.sidebar a {
+  display: block;
+  color: black;
+  padding: 16px;
+  text-decoration: none;
+}
+
+.sidebar a.active { background-color: #04AA6D; color: white; }
+.sidebar a:hover:not(.active) { background-color: #e6e6e6; }
+
+.sidebar img{
+    width: 70px;
+    margin: 20px auto;
+    display: block;
+}
+
+#map {
+    height: 100vh;
+    width: calc(100vw - 150px);
+    margin-left: 150px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<img src="assets/cog.png">
+<a href="index.html">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-house-fill">
+  <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L8 2.207l6.646 6.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293z"/>
+  <path d="m8 3.293 6 6V13.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5V9.293z"/>
+</svg>
+Home</a>
+
+<a class="active" href="harta.html">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-fill">
+  <path fill-rule="evenodd" d="M4 4a4 4 0 1 1 4.5 3.969V13.5a.5.5 0 0 1-1 0V7.97A4 4 0 0 1 4 3.999zm2.493 8.574a.5.5 0 0 1-.411.575c-.712.118-1.28.295-1.655.493a1.3 1.3 0 0 0-.37.265.3.3 0 0 0-.057.09V14l.002.008.016.033a.6.6 0 0 0 .145.15c.165.13.435.27.813.395.751.25 1.82.414 3.024.414s2.273-.163 3.024-.414c.378-.126.648-.265.813-.395a.6.6 0 0 0 .146-.15l.015-.033L12 14v-.004a.3.3 0 0 0-.057-.09 1.3 1.3 0 0 0-.37-.264c-.376-.198-.943-.375-1.655-.493a.5.5 0 1 1 .164-.986c.77.127 1.452.328 1.957.594C12.5 13 13 13.4 13 14c0 .426-.26.752-.544.977-.29.228-.68.413-1.116.558-.878.293-2.059.465-3.34.465s-2.462-.172-3.34-.465c-.436-.145-.826-.33-1.116-.558C3.26 14.752 3 14.426 3 14c0-.599.5-1 .961-1.243.505-.266 1.187-.467 1.957-.594a.5.5 0 0 1 .575.411"/>
+</svg>
+Harta</a>
+
+<a>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-envelope-fill">
+  <path d="M.05 3.555A2 2 0 0 1 2 2h12a2 2 0 0 1 1.95 1.555L8 8.414zM0 4.697v7.104l5.803-3.558zM6.761 8.83l-6.57 4.027A2 2 0 0 0 2 14h12a2 2 0 0 0 1.808-1.144l-6.57-4.027L8 9.586zm3.436-.586L16 11.801V4.697z"/>
+</svg>
+Contact</a>
+
+<a>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-person-fill">
+  <path d="M12 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2m-1 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0m-3 4c2.623 0 4.146.826 5 1.755V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-1.245C3.854 11.825 5.377 11 8 11"/>
+</svg>
+About</a>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+let map = L.map("map").setView([45,25], 7);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+let markers = L.layerGroup().addTo(map);
+let circle = null;
+
+navigator.geolocation.getCurrentPosition(load, fallback, { enableHighAccuracy:true });
+
+async function fallback(){
+    const d = await fetch("https://ipapi.co/json/").then(r=>r.json());
+    load({coords:{latitude:d.latitude,longitude:d.longitude}});
+}
+
+async function load(pos){
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+
+    L.marker([lat,lon]).addTo(map).bindPopup("📍 Esti aici");
+
+    // cerc vizibil 5KM
+    if(circle) map.removeLayer(circle);
+    
+    circle = L.circle([lat,lon], {
+        radius: 5000,
+        color: "#0077ff",
+        fillColor: "rgba(0,119,255,0.15)",
+        fillOpacity: 0.3,
+        weight: 2
+    }).addTo(map);
+
+    map.setView([lat,lon], 14);
+
+    // preia shops din OSM folosind Overpass API
+    const query = `
+[out:json][timeout:30];
+(
+ node["shop"](around:5000,${lat},${lon});
+ way["shop"](around:5000,${lat},${lon});
+);
+out center;
+`;
+
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+        method:"POST",
+        headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+        body:"data=" + encodeURIComponent(query)
+    });
+
+    const data = await res.json();
+
+    markers.clearLayers();
+
+    data.elements.forEach(e => {
+        const pLat = e.lat || e.center?.lat;
+        const pLon = e.lon || e.center?.lon;
+        const name = e.tags.name || "Magazin fara nume";
+
+        // detectare website
+        const website =
+            e.tags.website ||
+            e.tags.url ||
+            e.tags["contact:website"] ||
+            e.tags["contact:url"] ||
+            e.tags.facebook ||
+            e.tags.instagram ||
+            null;
+
+        let online;
+
+        if(website){
+            online = `
+                <a href="${website}" target="_blank" 
+                style="color:#0077cc;font-weight:bold;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-basket2-fill" viewBox="0 0 16 16">
+  <path d="M5.929 1.757a.5.5 0 1 0-.858-.514L2.217 6H.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h.623l1.844 6.456A.75.75 0 0 0 3.69 15h8.622a.75.75 0 0 0 .722-.544L14.877 8h.623a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1.717L10.93 1.243a.5.5 0 1 0-.858.514L12.617 6H3.383zM4 10a1 1 0 0 1 2 0v2a1 1 0 1 1-2 0zm3 0a1 1 0 0 1 2 0v2a1 1 0 1 1-2 0zm4-1a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1"/>
+</svg> Vezi site / magazin online
+                </a>
+            `;
+        } else {
+            online = `<span style="color:#777;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
+  <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+</svg> Niciun site găsit — doar fizic.</span>`;
+        }
+
+        const popup = `
+            <b style="font-size:15px;">${name}</b><br><br>
+            ${online}<br><br>
+            <a href="https://www.google.com/maps?q=${pLat},${pLon}" 
+               target="_blank" style="color:#04AA6D;font-weight:bold;">
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clock-fill" viewBox="0 0 16 16">
+  <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71z"/>
+</svg> Navighează
+            </a>
+        `;
+
+        L.marker([pLat,pLon]).addTo(markers).bindPopup(popup);
+    });
+
+}
+</script>
+
+
+
+
+</body>
+</html>
