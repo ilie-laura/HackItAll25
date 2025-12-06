@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
 <style>
-body{
+body {
     font-family: Arial, sans-serif;
     background-color: rgb(225, 237, 229);
     margin: 0;
@@ -55,6 +55,16 @@ body{
     border-left: 2px solid #adadad;
 }
 
+/* results area (lista magazinelor) */
+#results {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    max-height: 36%;
+    overflow-y: auto;
+    background: #fafafa;
+}
+
+/* chat area (conservăm mesajul initial aici) */
 #chat {
     padding: 15px;
     overflow-y: auto;
@@ -63,6 +73,7 @@ body{
     flex-direction: column;
 }
 
+/* messages */
 .bubble {
     max-width: 80%;
     padding: 10px;
@@ -94,6 +105,34 @@ body{
     cursor: pointer;
     border-radius: 6px;
 }
+
+.card {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: #fff;
+}
+
+.badge.local {
+    background: #04AA6D;
+    color: white;
+    padding: 2px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    margin-left: 5px;
+}
+
+.badge.chain {
+    background: #d9534f;
+    color: white;
+    padding: 2px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    margin-left: 5px;
+}
+
+.muted { color: #666; font-size: 13px; margin-top:6px;}
 </style>
 </head>
 
@@ -111,12 +150,17 @@ body{
     <div id="map"></div>
 
     <div id="panel">
+        <!-- Lista de rezultate (nu suprascrie chat-ul) -->
+        <div id="results"></div>
+
+        <!-- Chat (mesaj initial ramane) -->
         <div id="chat">
             <div class="bubble bot">
-                👋 Salut! Spune ce cauti: <br><br>
+                👋 Salut! Spune ce cauți: <br><br>
                 👉 "am nevoie de o farmacie" <br>
                 👉 "caut haine second hand" <br>
-                👉 "unde gasesc paine?"
+                👉 "unde gasesc paine?" <br><br>
+                Scrie un produs (ex: "blugi negrii") și apasă Trimite.
             </div>
         </div>
 
@@ -127,130 +171,8 @@ body{
     </div>
 </div>
 
-
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-<script>
-function normalizeText(str){
-    return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-}
-
-const semanticMap = {
- pharmacy:["farmacie","pastile","medicamente"],
- bakery:["paine","covrigi","cozonac","patiserie"],
- clothes:["haine","tricou","second hand","pantofi","rochie"],
- supermarket:["magazin","supermarket","market","alimentar"],
- marketplace:["piata","targ","legume","fructe"]
-};
-
-const categoryMap = {
- pharmacy:["pharmacy"],
- bakery:["bakery"],
- clothes:["clothes","second_hand","boutique","shoes"],
- supermarket:["supermarket","convenience","grocery"],
- marketplace:["marketplace"]
-};
-
-function detectCategory(text){
- text = normalizeText(text);
- for(let c in semanticMap){
-     if(semanticMap[c].some(w=>text.includes(w))) return c;
- }
- return null;
-}
-
-let map = L.map('map').setView([45,25],7);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-
-let shops=[], userCoords=null, markers=L.layerGroup().addTo(map), MAX_DISTANCE=5000;
-
-navigator.geolocation.getCurrentPosition(load,fallback,{timeout:5000});
-
-async function fallback(){
- const d = await (await fetch("https://ipapi.co/json/")).json();
- load({coords:{latitude:d.latitude,longitude:d.longitude}});
-}
-
-async function load(pos){
- userCoords=[pos.coords.latitude,pos.coords.longitude];
- L.marker(userCoords).addTo(map).bindPopup("Locatia ta");
- map.setView(userCoords,15);
-
- const query=`[out:json];
- (
-  node["shop"](around:${MAX_DISTANCE},${userCoords[0]},${userCoords[1]});
-  node["amenity"="pharmacy"](around:${MAX_DISTANCE},${userCoords[0]},${userCoords[1]});
-  node["amenity"="marketplace"](around:${MAX_DISTANCE},${userCoords[0]},${userCoords[1]});
- );
- out center;`;
-
- const res=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:query});
- const data=await res.json();
-
- shops=data.elements.map(e=>({
-   name:e.tags.name || "Fara nume",
-   type:e.tags.shop || e.tags.amenity || "",
-   lat:e.lat,
-   lon:e.lon,
-   distance:map.distance(userCoords,[e.lat,e.lon])
- }));
-
- renderMap();
-}
-
-function renderMap(){
- markers.clearLayers();
- shops.forEach(s=>L.marker([s.lat,s.lon]).addTo(markers));
-}
-
-function sendMsg(){
- const text=document.getElementById("chat-input").value.trim();
- if(!text) return;
- document.getElementById("chat-input").value="";
- addBubble(text,"user");
- respond(text);
-}
-
-document.getElementById("send-btn").onclick=sendMsg;
-
-const chat=document.getElementById("chat");
-
-function addBubble(text,role){
- const b=document.createElement("div");
- b.className="bubble "+role;
- b.innerHTML=text;
- chat.append(b);
- chat.scrollTop=chat.scrollHeight;
-}
-
-function respond(text){
- const category=detectCategory(text);
-
- if(!category){
-     addBubble("Nu inteleg... incearca: farmacie, haine, paine.","bot");
-     return;
- }
-
- const matches=shops.filter(s=>categoryMap[category].some(tag=>normalizeText(s.type).includes(tag)));
-
- if(!matches.length){
-     addBubble("Nu am gasit nimic in 5 km.","bot");
-     return;
- }
-
- addBubble(`Am gasit ${matches.length} locatii pentru ${category}:`,`bot`);
-
- matches.sort((a,b)=>a.distance-b.distance).forEach(s=>{
-     addBubble(`
-         📍 <b>${s.name}</b><br>
-         ${Math.round(s.distance)}m<br>
-         <a href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}" target="_blank">
-         Deschide in Maps
-         </a>
-     `,"bot");
- });
-}
-</script>
+<script src="app.js"></script>
 
 </body>
 </html>
